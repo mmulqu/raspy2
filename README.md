@@ -15,19 +15,27 @@ A local browser-based frontend for interacting with Letta agents across multiple
 
 ### Prerequisites
 
-1. **Letta Server Running**: Make sure your Letta server is running locally:
+1. **Configure Environment Variables**:
+   ```bash
+   # Copy the example file
+   cp .env.example .env
+
+   # Edit .env and add your API keys
+   nano .env  # or use your preferred editor
+   ```
+
+2. **Start Letta Server**:
    ```bash
    docker run \
      -v ~/.letta/.persist/pgdata:/var/lib/postgresql/data \
      -p 8283:8283 \
-     -e OPENAI_API_KEY="your_key" \
-     -e ANTHROPIC_API_KEY="your_key" \
-     -e SECURE=true \
-     -e LETTA_SERVER_PASSWORD=yourpassword \
+     --env-file .env \
      letta/letta:latest
    ```
 
-2. **Agent Created**: Have an agent created in your Letta server
+   The server will automatically discover all available models based on the API keys in your `.env` file.
+
+3. **Agent Created**: Have an agent created in your Letta server (use the Letta ADE at app.letta.com)
 
 ### Usage
 
@@ -48,6 +56,8 @@ A local browser-based frontend for interacting with Letta agents across multiple
 
 ## Configuration
 
+### Frontend Configuration
+
 The frontend is pre-configured with your Letta server details:
 
 ```javascript
@@ -60,17 +70,48 @@ const CONFIG = {
 };
 ```
 
-To change these settings, edit the `CONFIG` object in the HTML file.
+To change these settings, edit the `CONFIG` object in `letta-frontend.html`.
+
+### Server Configuration (.env)
+
+The Letta server uses environment variables for LLM provider API keys. Edit `.env` to add your keys:
+
+```bash
+# .env file
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_AI_API_KEY=...
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+```
+
+**Important:**
+- The frontend **doesn't need** API keys - it only talks to your Letta server
+- The Letta server handles all LLM provider communication
+- Available models are automatically discovered from your configured API keys
+- See `.env.example` for all supported providers
 
 ## How It Works
 
-### Model Switching
+### Model Switching (Persistent!)
 When you select a new model from the dropdown:
 
 1. Frontend sends a PATCH request to `/v1/agents/{agent_id}`
-2. Updates the agent's `llm_config.model` parameter
+2. Updates the agent's `llm_config.model` parameter **in the database**
 3. Agent immediately starts using the new model for responses
 4. UI updates to show the current active model
+
+**Important:** Model changes are **permanent** until you switch again! This means:
+- ✅ Persists across browser refreshes
+- ✅ Persists if you close and reopen the frontend
+- ✅ Visible in the Letta ADE
+- ✅ Affects all API calls to this agent
+- ✅ Only changes when you explicitly switch models
+
+This allows you to:
+- Set a default model for your agent
+- Switch to cheaper models for testing
+- Use more powerful models for complex tasks
+- Compare different providers on the same conversation
 
 ### Message Flow
 1. User types message and clicks Send (or presses Enter)
