@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Letta Multi-LLM Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 20px 20px 0 0;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        select, button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        select option {
+            background: #764ba2;
+            color: white;
+        }
+
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 15px;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f7fafc;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .message-role {
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 80%;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+        }
+
+        .message.system .message-content {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s;
+            resize: none;
+            font-family: inherit;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 10px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 20px;
+            border-left: 4px solid #dc2626;
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .info-label {
+            opacity: 0.8;
+        }
+
+        .info-value {
+            font-weight: 600;
+        }
+
+        /* Scrollbar styling */
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span class="status-indicator"></span>
+                Letta Multi-LLM Chat
+            </h1>
+            <div class="controls">
+                <div class="control-group">
+                    <label>LLM Provider</label>
+                    <select id="modelSelect">
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+                <button class="refresh-btn" onclick="refreshModels()">🔄 Refresh Models</button>
+            </div>
+            <div class="info-panel">
+                <div class="info-item">
+                    <span class="info-label">Agent ID:</span>
+                    <span class="info-value" id="agentId">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Current Model:</span>
+                    <span class="info-value" id="currentModel">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="message system">
+                <div class="message-header">
+                    <span class="message-role">System</span>
+                    <span>Just now</span>
+                </div>
+                <div class="message-content">
+                    Connected to Letta agent. Select a model and start chatting!
+                </div>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <span>Agent is thinking...</span>
+        </div>
+
+        <div class="input-container">
+            <textarea
+                id="messageInput"
+                class="message-input"
+                placeholder="Type your message here... (Press Shift+Enter for new line, Enter to send)"
+                rows="1"
+            ></textarea>
+            <button class="send-btn" onclick="sendMessage()" id="sendBtn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            LETTA_BASE_URL: 'http://localhost:8283',
+            LETTA_TOKEN: 'yourpassword',
+            LETTA_API_TOKEN: 'sk-let-YjM2Y2ZjYzQtNWM0NC00ZDRiLTg4NWItZjUxYjIxYzAyM2UzOjE4ZmVmYzUzLWI0ODUtNDIyNy04YTQyLTFhMzZiZDU3MDAyYQ==',
+            LETTA_PROJECT: 'default',
+            LETTA_AGENT_ID: 'agent-a0b842d2-f808-47bd-b477-bb85ca1e7d00'
+        };
+
+        // State
+        let currentAgent = null;
+        let availableModels = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('agentId').textContent = CONFIG.LETTA_AGENT_ID;
+            await loadAgent();
+            await loadModels();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            const input = document.getElementById('messageInput');
+
+            // Auto-resize textarea
+            input.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+            });
+
+            // Handle Enter key
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Model selection change
+            document.getElementById('modelSelect').addEventListener('change', async (e) => {
+                const selectedModel = e.target.value;
+                if (selectedModel) {
+                    await updateAgentModel(selectedModel);
+                }
+            });
+        }
+
+        async function apiRequest(endpoint, options = {}) {
+            const url = `${CONFIG.LETTA_BASE_URL}${endpoint}`;
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${CONFIG.LETTA_TOKEN}`,
+                ...options.headers
+            };
+
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error: ${response.status} - ${errorText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('API Request failed:', error);
+                showError(`API Error: ${error.message}`);
+                throw error;
+            }
+        }
+
+        async function loadAgent() {
+            try {
+                currentAgent = await apiRequest(`/v1/agents/${CONFIG.LETTA_AGENT_ID}`);
+                console.log('Loaded agent:', currentAgent);
+
+                // Update UI with current model
+                if (currentAgent.llm_config?.model) {
+                    document.getElementById('currentModel').textContent = currentAgent.llm_config.model;
+                }
+            } catch (error) {
+                console.error('Failed to load agent:', error);
+            }
+        }
+
+        async function loadModels() {
+            try {
+                const response = await apiRequest('/v1/models');
+                availableModels = response.models || [];
+
+                const modelSelect = document.getElementById('modelSelect');
+                modelSelect.innerHTML = '<option value="">Select a model...</option>';
+
+                // Group models by provider
+                const modelsByProvider = {};
+                availableModels.forEach(model => {
+                    const provider = model.provider_name || 'Unknown';
+                    if (!modelsByProvider[provider]) {
+                        modelsByProvider[provider] = [];
+                    }
+                    modelsByProvider[provider].push(model);
+                });
+
+                // Create optgroups for each provider
+                Object.entries(modelsByProvider).forEach(([provider, models]) => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = provider;
+
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.model_name;
+                        option.textContent = model.model_name;
+
+                        // Select current model
+                        if (currentAgent?.llm_config?.model === model.model_name) {
+                            option.selected = true;
+                        }
+
+                        optgroup.appendChild(option);
+                    });
+
+                    modelSelect.appendChild(optgroup);
+                });
+
+                console.log(`Loaded ${availableModels.length} models`);
+            } catch (error) {
+                console.error('Failed to load models:', error);
+                showError('Failed to load available models. Check console for details.');
+            }
+        }
+
+        async function refreshModels() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '🔄 Refreshing...';
+
+            await loadModels();
+
+            btn.disabled = false;
+            btn.textContent = '🔄 Refresh Models';
+        }
+
+        async function updateAgentModel(modelName) {
+            try {
+                showLoading(true);
+
+                // Update the agent's model
+                const updatedAgent = await apiRequest(`/v1/agents/${CONFIG.LETTA_AGENT_ID}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        llm_config: {
+                            model: modelName
+                        }
+                    })
+                });
+
+                currentAgent = updatedAgent;
+                document.getElementById('currentModel').textContent = modelName;
+
+                addMessage('system', `Model switched to: ${modelName}`);
+                console.log('Updated agent model to:', modelName);
+            } catch (error) {
+                console.error('Failed to update agent model:', error);
+                showError('Failed to update model. Check console for details.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // Disable input while sending
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            input.disabled = true;
+
+            try {
+                // Add user message to UI
+                addMessage('user', message);
+                input.value = '';
+                input.style.height = 'auto';
+
+                showLoading(true);
+
+                // Send message to agent
+                const response = await apiRequest(`/v1/agents/${CONFIG.LETTA_AGENT_ID}/messages`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        messages: [{
+                            role: 'user',
+                            content: [{
+                                type: 'text',
+                                text: message
+                            }]
+                        }]
+                    })
+                });
+
+                console.log('Agent response:', response);
+
+                // Display agent's response messages
+                if (response.messages && response.messages.length > 0) {
+                    response.messages.forEach(msg => {
+                        if (msg.role === 'assistant' || msg.role === 'tool') {
+                            // Extract text content from the message
+                            let text = '';
+                            if (Array.isArray(msg.content)) {
+                                msg.content.forEach(content => {
+                                    if (content.type === 'text' && content.text) {
+                                        text += content.text + '\n';
+                                    } else if (content.type === 'tool_call_result' && content.tool_call_result) {
+                                        text += `[Tool: ${content.tool_call_result}]\n`;
+                                    }
+                                });
+                            } else if (typeof msg.content === 'string') {
+                                text = msg.content;
+                            }
+
+                            if (text.trim()) {
+                                addMessage('assistant', text.trim());
+                            }
+                        }
+                    });
+                } else {
+                    addMessage('system', 'No response from agent');
+                }
+
+            } catch (error) {
+                console.error('Failed to send message:', error);
+                showError('Failed to send message. Check console for details.');
+            } finally {
+                showLoading(false);
+                sendBtn.disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        function addMessage(role, content) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <span class="message-role">${role}</span>
+                    <span>${timeStr}</span>
+                </div>
+                <div class="message-content">${escapeHtml(content)}</div>
+            `;
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            if (show) {
+                loading.classList.add('active');
+            } else {
+                loading.classList.remove('active');
+            }
+        }
+
+        function showError(message) {
+            const chatContainer = document.getElementById('chatContainer');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            chatContainer.appendChild(errorDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // Remove error after 5 seconds
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
